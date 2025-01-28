@@ -1,7 +1,7 @@
 # Differentiation-and-homogenization-of-European-communities
 Data and code associated with the paper (under revision) "Recovering European river invertebrate communities homogenize or differentiate depending on anthropogenic stress"
 1. Code associated with analyses and figures
-2. Data1_communityBasins: contains community data at the basin scale and basin characteristics
+2. Data1_communityBasins: contains community data at the basin scale, environmental variables, and basin descriptors
    basin: basin code
    country: country name
    basin_name: basin name
@@ -25,7 +25,7 @@ Data and code associated with the paper (under revision) "Recovering European ri
    biological_bray: beta diversity based on Bray Curtis index and abundance-weighted composition of biological traits
    ecological_bray: beta diversity based on Bray Curtis index and abundance-weighted composition of ecological traits
    taxonomic_chiSq: beta diversity based on BRay Curts index and abundance-weighted taxonomic composition (Chi-Square transformed abundances)
-3. Data2_communitySites
+3. Data2_communitySites: contains community data at the site scale
    basin: basin code (as in Data1)
    site: site unique ID
    country: country name
@@ -41,7 +41,7 @@ Data and code associated with the paper (under revision) "Recovering European ri
    biological_hill1: Shannon diversity index (or Hill number 1) represents the number of biological traits weighted by the geometric mean of their proportional abundances
    ecological_hill1: Shannon diversity index (or Hill number 1) represents the number of ecological traits weighted by the geometric mean of their proportional abundances
    eqr_site: ecological quality ratio (EQR) for a site and a year
-4. Data3_ecopart
+4. Data3_ecopart: contains community data at the basin scale
    basin: basin code (as in Data1)
    country: country name
    year: sampling year
@@ -72,13 +72,13 @@ Data and code associated with the paper (under revision) "Recovering European ri
    biological_subtraction_fromLast: last-to-first year change in biological traits beta diversity due to subtractions
    ecological_addition_fromLast: last-to-first year change in ecological traits beta diversity due to additions
    ecological_subtraction_fromLast: last-to-first year change in ecological traits beta diversity due to subtractions
-5. Data4_ecopart_biotraits
+5. Data4_ecopart_biotraits: contains trait data at the basin scale
    basin: basin code (as in Data1)
    year: sampling year
    biotrait: biological trait modality
    additive: change in biological trait beta diversity due to the trait addition
    subtractive: change in biological trait beta diversity due to the trait subtraction
-6. Data5_ecopart_ecotraits
+6. Data5_ecopart_ecotraits: contains trait data at the basin scale
    basin: basin code (as in Data1)
    year: sampling year
    ecotrait: ecological trait modality
