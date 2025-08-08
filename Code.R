@@ -127,6 +127,140 @@ land.mean %>% ggplot(aes(x = urb.mean)) +
 
 
 
+##### ----- Evidence of recovery
+
+### --- Taxonomic richness trends per site
+
+## -- Mean trend over time
+
+richness.mean<-glmmTMB(tax.richness ~ year_s + (year_s|basin_f) + (1 | site_f),
+                       family = nbinom2,
+                       REML = TRUE,
+                       data = alpha)
+summary(richness.mean)
+
+tax.basins<-coef(richness.mean)$cond$basin_f
+
+example.sites<-alpha %>% group_by(basin_f) %>% summarise(site_f = first(site_f))
+pred.tax.richness<-expand.grid(year_s = seq(min(alpha$year_s), max(alpha$year_s), length.out = 100), basin_f = unique(alpha$basin_f)) %>%
+  left_join(example.sites, by = "basin_f")
+scale(alpha$year)
+pred.tax.richness$year<-pred.tax.richness$year_s * 5.581855 + 2010.928
+pred.tax.richness$fit<-predict(richness.mean, newdata = pred.tax.richness, type = "response", allow.new.levels = TRUE)
+
+tax.fixed<-data.frame(year_s = seq(min(pred.tax.richness$year_s), max(pred.tax.richness$year_s), length.out = 100))
+tax.fixed$fit <- predict(richness.mean, newdata = tax.fixed, type = "response", re.form = NA)
+tax.fixed$year<-year.unscaled
+
+ggplot() +
+  geom_line(data = pred.tax.richness, aes(x = year, y = fit, group = basin_f), linewidth = 1, color = "gray") +
+  geom_line(data = tax.fixed, aes(x = year, y = fit), color = "#008837", linewidth = 3, linetype = "solid")+
+  labs(y = "Richness", x = "Year") +
+  theme_bw() +
+  theme(legend.position = "bottom", text = element_text(size = 35), panel.border = element_rect(colour = "black", fill = NA, linewidth = 1))
+
+
+
+### --- Biological trait richness trends per site
+
+## -- Trends (over time) per basin
+
+bio.richness.mean<-glmmTMB(bio.richness ~ year_s + (year_s|basin_f) + (1 | site_f),
+                           family = beta_family(link = "logit"),
+                           REML = TRUE,
+                           data = alpha)
+summary(bio.richness.mean)
+
+bio.basins<-coef(bio.richness.mean)$cond$basin_f
+
+pred.bio.richness<-expand.grid(year_s = seq(min(alpha$year_s), max(alpha$year_s), length.out = 100), basin_f = unique(alpha$basin_f)) %>%
+  left_join(example.sites, by = "basin_f")
+pred.bio.richness$year<-pred.bio.richness$year_s * 5.581855 + 2010.928
+pred.bio.richness$fit<-predict(bio.richness.mean, newdata = pred.bio.richness, type = "response", allow.new.levels = TRUE)
+
+bio.fixed<-data.frame(year_s = seq(min(pred.bio.richness$year_s), max(pred.bio.richness$year_s), length.out = 100))
+bio.fixed$fit <- predict(bio.richness.mean, newdata = bio.fixed, type = "response", re.form = NA)
+bio.fixed$year<-year.unscaled
+
+ggplot() +
+  geom_line(data = pred.bio.richness, aes(x = year, y = fit, group = basin_f), linewidth = 1, color = "gray") +
+  geom_line(data = bio.fixed, aes(x = year, y = fit), color = "#5e3c99", linewidth = 3, linetype = "solid")+
+  labs(y = "Richness", x = "Year") +
+  theme_bw() +
+  theme(legend.position = "bottom", text = element_text(size = 35), panel.border = element_rect(colour = "black", fill = NA, linewidth = 1))
+
+
+
+### --- Ecological trait richness trends per site
+
+## -- Trends (over time) per basin
+
+eco.richness.mean<-glmmTMB(eco.richness ~ year_s + (year_s|basin_f) + (1 | site_f),
+                           family = beta_family(link = "logit"),
+                           REML = TRUE,
+                           data = alpha)
+summary(eco.richness.mean)
+
+eco.basins<-coef(eco.richness.mean)$cond$basin_f
+
+pred.eco.richness<-expand.grid(year_s = seq(min(alpha$year_s), max(alpha$year_s), length.out = 100), basin_f = unique(alpha$basin_f)) %>%
+  left_join(example.sites, by = "basin_f")
+pred.eco.richness$year<-pred.eco.richness$year_s * 5.581855 + 2010.928
+pred.eco.richness$fit<-predict(eco.richness.mean, newdata = pred.eco.richness, type = "response", allow.new.levels = TRUE)
+
+eco.fixed<-data.frame(year_s = seq(min(pred.eco.richness$year_s), max(pred.eco.richness$year_s), length.out = 100))
+eco.fixed$fit <- predict(eco.richness.mean, newdata = eco.fixed, type = "response", re.form = NA)
+eco.fixed$year<-year.unscaled
+
+ggplot() +
+  geom_line(data = pred.eco.richness, aes(x = year, y = fit, group = basin_f), linewidth = 1, color = "gray") +
+  geom_line(data = eco.fixed, aes(x = year, y = fit), color = "#e66101", linewidth = 3, linetype = "solid")+
+  labs(y = "Richness", x = "Year") +
+  theme_bw() +
+  theme(legend.position = "bottom", text = element_text(size = 35), panel.border = element_rect(colour = "black", fill = NA, linewidth = 1))
+
+
+df1<-tax.basins %>% rename(tax.slopes = year_s, tax.intercept = "(Intercept)") %>% mutate(basin = rownames(tax.basins))
+df2<-bio.basins %>% rename(bio.slopes = year_s, bio.intercept = "(Intercept)") %>% mutate(basin = rownames(bio.basins))
+df3<-eco.basins %>% rename(eco.slopes = year_s, eco.intercept = "(Intercept)") %>% mutate(basin = rownames(eco.basins))
+
+basin.summary<-reduce(list(df1, df2, df3), full_join, by = "basin")
+
+basin.summary<-merge(basin.summary, land.mean[, c("basin", "eqr.mean")], by = c("basin"), all.x = TRUE)
+basin.summary<-merge(basin.summary, temp.change, by = c("basin"), all.x = TRUE)
+basin.summary<-merge(basin.summary, land.pca[, c("basin", "PC1", "PC2")], by = c("basin"), all.x = TRUE)
+
+basin.summary.long<-basin.summary %>% pivot_longer(cols = ends_with("slopes"),
+                                                   names_to = "variable",
+                                                   values_to = "slopes")
+
+basin.summary.long %>% ggplot(aes(y = slopes, x = eqr.mean, color = variable)) +
+  geom_point(size = 5) +
+  geom_hline(yintercept = 0, linewidth = 1, linetype = "dashed") +
+  scale_color_manual(values = c("#5e3c99", "#e66101", "#008837")) +
+  labs(y = "Richness trend", x = "Mean EQR") +
+  theme_bw() +
+  theme(legend.position = "none", text = element_text(size = 35), panel.border = element_rect(colour = "black", fill = NA, linewidth = 1)) +
+  scale_x_reverse()
+
+basin.summary.long %>% ggplot(aes(y = slopes, x = temp.change, color = variable)) +
+  geom_point(size = 5) +
+  geom_hline(yintercept = 0, linewidth = 1, linetype = "dashed") +
+  scale_color_manual(values = c("#5e3c99", "#e66101", "#008837")) +
+  labs(y = "Richness trend", x = "Temperature trend") +
+  theme_bw() +
+  theme(legend.position = "none", text = element_text(size = 35), panel.border = element_rect(colour = "black", fill = NA, linewidth = 1))
+
+basin.summary.long %>% ggplot(aes(y = slopes, x = PC2, color = variable)) +
+  geom_point(size = 5) +
+  geom_hline(yintercept = 0, linewidth = 1, linetype = "dashed") +
+  scale_color_manual(values = c("#5e3c99", "#e66101", "#008837")) +
+  labs(y = "Richness trend", x = "Land cover") +
+  theme_bw() +
+  theme(legend.position = "none", text = element_text(size = 35), panel.border = element_rect(colour = "black", fill = NA, linewidth = 1))
+
+
+
 ##### -----  Modeling ꞵ-diversity trends
 
 # Scale predictors
@@ -265,6 +399,56 @@ eqr.mean.pred.tax %>% ggplot() +
 
 
 
+## -- Trends in ꞵ-diversity linked to mean EQR  (recovering communities)
+
+tax.deg<-c("CR02", "DE06", "DE07", "DE09", "FI01", "FR03", "FR04", "GR01", "GR02", "HU01", "IR01", "SP07", "SW01", "SW02", "SW05")
+
+tax.eqr.rec<-glmmTMB(tax_bray ~ year_s * eqr.mean + taxi + (1|basin_f),
+                     family = beta_family(link = "logit"),
+                     REML = TRUE,
+                     data = dat[!(dat$basin_f %in% tax.deg), ])
+summary(tax.eqr.rec)
+
+# Predicted year effect given values of predictor
+
+eqr.rec.pred<-predict(tax.eqr.rec, newdata = data.frame("year_s" = year.pred, "eqr.mean" = mean(dat$eqr.mean), "taxi" = mean(dat$taxi), "basin_f" = NA), type = "response", se.fit = TRUE)
+eqr.rec.pred.tax<-data.frame(eqr.rec.pred)
+seq(from = min(dat$eqr.mean), to = max(dat$eqr.mean), length.out = 5)
+eqr.rec01<-predict(tax.eqr.rec, newdata = data.frame("year_s" = year.pred, "eqr.mean" = -1.61, "taxi" = mean(dat$taxi), "basin_f" = NA), type = "response", se.fit = TRUE)
+eqr.rec02<-predict(tax.eqr.rec, newdata = data.frame("year_s" = year.pred, "eqr.mean" = -0.67, "taxi" = mean(dat$taxi), "basin_f" = NA), type = "response", se.fit = TRUE)
+eqr.rec03<-predict(tax.eqr.rec, newdata = data.frame("year_s" = year.pred, "eqr.mean" = 0.27, "taxi" = mean(dat$taxi), "basin_f" = NA), type = "response", se.fit = TRUE)
+eqr.rec04<-predict(tax.eqr.rec, newdata = data.frame("year_s" = year.pred, "eqr.mean" = 1.20, "taxi" = mean(dat$taxi), "basin_f" = NA), type = "response", se.fit = TRUE)
+eqr.rec05<-predict(tax.eqr.rec, newdata = data.frame("year_s" = year.pred, "eqr.mean" = 2.13, "taxi" = mean(dat$taxi), "basin_f" = NA), type = "response", se.fit = TRUE)
+
+eqr.rec.pred.tax<-cbind(eqr.rec.pred.tax, eqr.rec01, eqr.rec02, eqr.rec03, eqr.rec04, eqr.rec05)
+colnames(eqr.rec.pred.tax)<-c("fit", "se.fit", "fit.1", "se.fit.1", "fit.2", "se.fit.2", "fit.3", "se.fit.3", "fit.4", "se.fit.4", "fit.5", "se.fit.5")
+eqr.rec.pred.tax<-eqr.rec.pred.tax %>% mutate(fit.ci05 = fit - (1.96 * se.fit), fit.ci95 = fit + (1.96 * se.fit), # mean
+                                              fit1.ci05 = fit.1 - (1.96 * se.fit.1), fit1.ci95 = fit.1 + (1.96 * se.fit.1), # eqr 0.2
+                                              fit2.ci05 = fit.2 - (1.96 * se.fit.2), fit2.ci95 = fit.2 + (1.96 * se.fit.2), # eqr 0.4
+                                              fit3.ci05 = fit.3 - (1.96 * se.fit.3), fit3.ci95 = fit.3 + (1.96 * se.fit.3), # eqr 0.6
+                                              fit4.ci05 = fit.4 - (1.96 * se.fit.4), fit4.ci95 = fit.4 + (1.96 * se.fit.4), # eqr 0.8
+                                              fit5.ci05 = fit.5 - (1.96 * se.fit.5), fit5.ci95 = fit.5 + (1.96 * se.fit.5)) # eqr 1.0
+eqr.rec.pred.tax$year<-year.unscaled
+eqr.rec.pred.tax<-eqr.rec.pred.tax %>% relocate(year)
+
+eqr.rec.pred.tax %>% ggplot() +
+  ylim(0.7,0.9) +
+  geom_line(aes(y = fit.1, x = year), color = "#B22222", linewidth = 3, linetype = "longdash") +
+  geom_ribbon(aes(x = year, ymin = fit1.ci05, ymax = fit1.ci95), alpha = 0.05, fill = "#B22222") + # more negative slope (degradation)
+  geom_line(aes(y = fit.2, x = year), color = "#E66100", linewidth = 2, linetype = "longdash") +
+  geom_ribbon(aes(x = year, ymin = fit2.ci05, ymax = fit2.ci95), alpha = 0.05, fill = "#E66100") +
+  geom_line(aes(y = fit.3, x = year), color = "#FFD700", linewidth = 2, linetype = "longdash") +
+  geom_ribbon(aes(x = year, ymin = fit3.ci05, ymax = fit3.ci95), alpha = 0.05, fill = "#FFD700") +
+  geom_line(aes(y = fit.4, x = year), color = "#91BFDB", linewidth = 2, linetype = "longdash") +
+  geom_ribbon(aes(x = year, ymin = fit4.ci05, ymax = fit4.ci95), alpha = 0.05, fill = "#91BFDB") +
+  geom_line(aes(y = fit.5, x = year), color = "#00468B", linewidth = 3, linetype = "longdash") +
+  geom_ribbon(aes(x = year, ymin = fit5.ci05, ymax = fit5.ci95), alpha = 0.05, fill = "#00468B") + # more positive slope (improvement)
+  labs(y = "ꞵ-diversity", x = "Year", title = NULL) +
+  theme_bw() +
+  theme(text = element_text(size = 35), panel.border = element_rect(colour = "black", fill = NA, linewidth = 1), panel.grid.major = element_line(linewidth = 0.8))
+
+
+
 ## -- Trends in ꞵ-diversity linked to temperature trend
 
 tax.temp.change<-glmmTMB(tax_bray ~ year_s * temp.change + taxi + (1|basin_f),
@@ -304,6 +488,54 @@ temp.change.pred.tax$year<-year.unscaled
 temp.change.pred.tax<-temp.change.pred.tax %>% relocate(year)
 
 temp.change.pred.tax %>% ggplot() +
+  ylim(0.7,0.9) +
+  geom_line(aes(y = fit.1, x = year), color = "#00468B", linewidth = 3, linetype = "longdash") +
+  geom_ribbon(aes(x = year, ymin = fit1.ci05, ymax = fit1.ci95), alpha = 0.05, fill = "#00468B") + # lower slope (less warming or even cooling)
+  geom_line(aes(y = fit.2, x = year), color = "#91BFDB", linewidth = 2, linetype = "longdash") +
+  geom_ribbon(aes(x = year, ymin = fit2.ci05, ymax = fit2.ci95), alpha = 0.05, fill = "#91BFDB") +
+  geom_line(aes(y = fit.3, x = year), color = "#FFD700", linewidth = 2, linetype = "longdash") +
+  geom_ribbon(aes(x = year, ymin = fit3.ci05, ymax = fit3.ci95), alpha = 0.05, fill = "#FFD700") +
+  geom_line(aes(y = fit.4, x = year), color = "#E66100", linewidth = 2, linetype = "longdash") +
+  geom_ribbon(aes(x = year, ymin = fit4.ci05, ymax = fit4.ci95), alpha = 0.05, fill = "#E66100") +
+  geom_line(aes(y = fit.5, x = year), color = "#B22222", linewidth = 3, linetype = "longdash") +
+  geom_ribbon(aes(x = year, ymin = fit5.ci05, ymax = fit5.ci95), alpha = 0.05, fill = "#B22222") + # higher slope (more warming)
+  labs(y = "ꞵ-diversity", x = "Year", title = NULL) +
+  theme_bw() +
+  theme(text = element_text(size = 35), panel.border = element_rect(colour = "black", fill = NA, linewidth = 1), panel.grid.major = element_line(linewidth = 0.8))
+
+
+
+## -- Trends in ꞵ-diversity linked to mean temperature trend (recovering communities)
+
+tax.temp.rec<-glmmTMB(tax_bray ~ year_s * temp.change + taxi + (1|basin_f),
+                      family = beta_family(link = "logit"),
+                      REML = TRUE,
+                      data = dat[!(dat$basin_f %in% tax.deg), ])
+summary(tax.temp.rec)
+
+# Predicted year effect given values of predictor
+
+temp.rec.pred.tax<-predict(tax.temp.rec, newdata = data.frame("year_s" = year.pred, "temp.change" = mean(dat$temp.change), "taxi" = mean(dat$taxi), "basin_f" = NA), type = "response", se.fit = TRUE)
+temp.rec.pred.tax<-data.frame(temp.rec.pred.tax)
+seq(from = min(dat$temp.change), to = max(dat$temp.change), length.out = 5)
+temp.change01<-predict(tax.temp.rec, newdata = data.frame("year_s" = year.pred, "temp.change" = -2.02, "taxi" = mean(dat$taxi), "basin_f" = NA), type = "response", se.fit = TRUE)
+temp.change02<-predict(tax.temp.rec, newdata = data.frame("year_s" = year.pred, "temp.change" = -0.96, "taxi" = mean(dat$taxi), "basin_f" = NA), type = "response", se.fit = TRUE)
+temp.change03<-predict(tax.temp.rec, newdata = data.frame("year_s" = year.pred, "temp.change" = 0.09, "taxi" = mean(dat$taxi), "basin_f" = NA), type = "response", se.fit = TRUE)
+temp.change04<-predict(tax.temp.rec, newdata = data.frame("year_s" = year.pred, "temp.change" = 1.14, "taxi" = mean(dat$taxi), "basin_f" = NA), type = "response", se.fit = TRUE)
+temp.change05<-predict(tax.temp.rec, newdata = data.frame("year_s" = year.pred, "temp.change" = 2.19, "taxi" = mean(dat$taxi), "basin_f" = NA), type = "response", se.fit = TRUE)
+
+temp.rec.pred.tax<-cbind(temp.rec.pred.tax, temp.change01, temp.change02, temp.change03, temp.change04, temp.change05)
+colnames(temp.rec.pred.tax)<-c("fit", "se.fit", "fit.1", "se.fit.1", "fit.2", "se.fit.2", "fit.3", "se.fit.3", "fit.4", "se.fit.4", "fit.5", "se.fit.5")
+temp.rec.pred.tax<-temp.rec.pred.tax %>% mutate(fit.ci05 = fit - (1.96 * se.fit), fit.ci95 = fit + (1.96 * se.fit), # mean
+                                                fit1.ci05 = fit.1 - (1.96 * se.fit.1), fit1.ci95 = fit.1 + (1.96 * se.fit.1), # temp.change 0.2
+                                                fit2.ci05 = fit.2 - (1.96 * se.fit.2), fit2.ci95 = fit.2 + (1.96 * se.fit.2), # temp.change 0.4
+                                                fit3.ci05 = fit.3 - (1.96 * se.fit.3), fit3.ci95 = fit.3 + (1.96 * se.fit.3), # temp.change 0.6
+                                                fit4.ci05 = fit.4 - (1.96 * se.fit.4), fit4.ci95 = fit.4 + (1.96 * se.fit.4), # temp.change 0.8
+                                                fit5.ci05 = fit.5 - (1.96 * se.fit.5), fit5.ci95 = fit.5 + (1.96 * se.fit.5)) # temp.change 1.0
+temp.rec.pred.tax$year<-year.unscaled
+temp.rec.pred.tax<-temp.rec.pred.tax %>% relocate(year)
+
+temp.rec.pred.tax %>% ggplot() +
   ylim(0.7,0.9) +
   geom_line(aes(y = fit.1, x = year), color = "#00468B", linewidth = 3, linetype = "longdash") +
   geom_ribbon(aes(x = year, ymin = fit1.ci05, ymax = fit1.ci95), alpha = 0.05, fill = "#00468B") + # lower slope (less warming or even cooling)
@@ -362,6 +594,56 @@ land.pred.tax$year<-year.unscaled
 land.pred.tax<-land.pred.tax %>% relocate(year)
 
 land.pred.tax %>% ggplot() +
+  ylim(0.7,0.9) +
+  geom_line(aes(y = fit.1, x = year), color = "#00468B", linewidth = 3, linetype = "longdash") + 
+  geom_ribbon(aes(x = year, ymin = fit1.ci05, ymax = fit1.ci95), alpha = 0.05, fill = "#00468B") + # lower stress (more forest)
+  geom_line(aes(y = fit.2, x = year), color = "#91BFDB", linewidth = 2, linetype = "longdash") + 
+  geom_ribbon(aes(x = year, ymin = fit2.ci05, ymax = fit2.ci95), alpha = 0.05, fill = "#91BFDB") + 
+  geom_line(aes(y = fit.3, x = year), color = "#FFD700", linewidth = 2, linetype = "longdash") + 
+  geom_ribbon(aes(x = year, ymin = fit3.ci05, ymax = fit3.ci95), alpha = 0.05, fill = "#FFD700") + 
+  geom_line(aes(y = fit.4, x = year), color = "#E66100", linewidth = 2, linetype = "longdash") + 
+  geom_ribbon(aes(x = year, ymin = fit4.ci05, ymax = fit4.ci95), alpha = 0.05, fill = "#E66100") + 
+  geom_line(aes(y = fit.5, x = year), color = "#B22222", linewidth = 3, linetype = "longdash") +
+  geom_ribbon(aes(x = year, ymin = fit5.ci05, ymax = fit5.ci95), alpha = 0.05, fill = "#B22222") + # higher stress (more urban)
+  labs(y = "ꞵ-diversity", x = "Year", title = NULL) +
+  theme_bw() +
+  theme(text = element_text(size = 35), panel.border = element_rect(colour = "black", fill = NA, linewidth = 1), panel.grid.major = element_line(linewidth = 0.8))
+
+
+
+## -- Trends in ꞵ-diversity linked to land cover stress (Recovering communities)
+
+tax.land.rec<-glmmTMB(tax_bray ~ year_s * PC1 + year_s * PC2 + taxi + (1|basin_f),
+                      family = beta_family(link = "logit"),
+                      REML = TRUE,
+                      data = dat[!(dat$basin_f %in% tax.deg), ])
+summary(tax.land.rec)
+
+# Predicted year effect given values of predictor
+
+land.rec.pred.tax<-predict(tax.land.rec, newdata = data.frame("year_s" = year.pred, "PC1" = mean(dat$PC1), "PC2" = mean(dat$PC2), "taxi" = mean(dat$taxi), "basin_f" = NA), type = "response", se.fit = TRUE)
+land.rec.pred.tax<-data.frame(land.rec.pred.tax)
+seq(from = min(dat$PC1), to = max(dat$PC1), length.out = 5)
+seq(from = min(dat$PC2), to = max(dat$PC2), length.out = 5)
+# Predict for a gradient of urbanization (PC2)
+land01<-predict(tax.land.rec, newdata = data.frame("year_s" = year.pred, "PC1" = mean(dat$PC1), "PC2" = -1.44, "taxi" = mean(dat$taxi), "basin_f" = NA), type = "response", se.fit = TRUE)
+land02<-predict(tax.land.rec, newdata = data.frame("year_s" = year.pred, "PC1" = mean(dat$PC1), "PC2" = -0.28, "taxi" = mean(dat$taxi), "basin_f" = NA), type = "response", se.fit = TRUE)
+land03<-predict(tax.land.rec, newdata = data.frame("year_s" = year.pred, "PC1" = mean(dat$PC1), "PC2" = 0.88, "taxi" = mean(dat$taxi),  "basin_f" = NA), type = "response", se.fit = TRUE)
+land04<-predict(tax.land.rec, newdata = data.frame("year_s" = year.pred, "PC1" = mean(dat$PC1), "PC2" = 2.03, "taxi" = mean(dat$taxi), "basin_f" = NA), type = "response", se.fit = TRUE)
+land05<-predict(tax.land.rec, newdata = data.frame("year_s" = year.pred, "PC1" = mean(dat$PC1), "PC2" = 3.18, "taxi" = mean(dat$taxi), "basin_f" = NA), type = "response", se.fit = TRUE)
+
+land.rec.pred.tax<-cbind(land.rec.pred.tax, land01, land02, land03, land04, land05)
+colnames(land.rec.pred.tax)<-c("fit", "se.fit", "fit.1", "se.fit.1", "fit.2", "se.fit.2", "fit.3", "se.fit.3", "fit.4", "se.fit.4", "fit.5", "se.fit.5")
+land.rec.pred.tax<-land.rec.pred.tax %>% mutate(fit.ci05 = fit - (1.96 * se.fit), fit.ci95 = fit + (1.96 * se.fit), # mean
+                                                fit1.ci05 = fit.1 - (1.96 * se.fit.1), fit1.ci95 = fit.1 + (1.96 * se.fit.1), # higher forest
+                                                fit2.ci05 = fit.2 - (1.96 * se.fit.2), fit2.ci95 = fit.2 + (1.96 * se.fit.2),
+                                                fit3.ci05 = fit.3 - (1.96 * se.fit.3), fit3.ci95 = fit.3 + (1.96 * se.fit.3),
+                                                fit4.ci05 = fit.4 - (1.96 * se.fit.4), fit4.ci95 = fit.4 + (1.96 * se.fit.4),
+                                                fit5.ci05 = fit.5 - (1.96 * se.fit.5), fit5.ci95 = fit.5 + (1.96 * se.fit.5)) # higher urban
+land.rec.pred.tax$year<-year.unscaled
+land.rec.pred.tax<-land.rec.pred.tax %>% relocate(year)
+
+land.rec.pred.tax %>% ggplot() +
   ylim(0.7,0.9) +
   geom_line(aes(y = fit.1, x = year), color = "#00468B", linewidth = 3, linetype = "longdash") + 
   geom_ribbon(aes(x = year, ymin = fit1.ci05, ymax = fit1.ci95), alpha = 0.05, fill = "#00468B") + # lower stress (more forest)
@@ -497,6 +779,55 @@ eqr.mean.pred.bio %>% ggplot() +
 
 
 
+## -- Trends in ꞵ-diversity linked to mean EQR (Recovering communities)
+
+bio.deg<-c("DE06", "DE07", "DE08", "FI01", "FR04", "FR06", "GR01", "GR02", "HU01", "IR01", "SP07")
+
+bio.eqr.rec<-glmmTMB(bio_bray ~ year_s * eqr.mean + bioi + (1|basin_f),
+                     family = beta_family(link = "logit"),
+                     REML = TRUE,
+                     data = dat[!(dat$basin_f %in% bio.deg), ])
+summary(bio.eqr.rec)
+
+# Predicted year effect given values of predictor
+
+eqr.rec.pred<-predict(bio.eqr.rec, newdata = data.frame("year_s" = year.pred, "eqr.mean" = mean(dat$eqr.mean), "bioi" = mean(dat$bioi), "basin_f" = NA), type = "response", se.fit = TRUE)
+eqr.rec.pred.bio<-data.frame(eqr.rec.pred)
+eqr.mean01<-predict(bio.eqr.rec, newdata = data.frame("year_s" = year.pred, "eqr.mean" = -1.61, "bioi" = mean(dat$bioi), "basin_f" = NA), type = "response", se.fit = TRUE)
+eqr.mean02<-predict(bio.eqr.rec, newdata = data.frame("year_s" = year.pred, "eqr.mean" = -0.67, "bioi" = mean(dat$bioi), "basin_f" = NA), type = "response", se.fit = TRUE)
+eqr.mean03<-predict(bio.eqr.rec, newdata = data.frame("year_s" = year.pred, "eqr.mean" = 0.27, "bioi" = mean(dat$bioi), "basin_f" = NA), type = "response", se.fit = TRUE)
+eqr.mean04<-predict(bio.eqr.rec, newdata = data.frame("year_s" = year.pred, "eqr.mean" = 1.20, "bioi" = mean(dat$bioi), "basin_f" = NA), type = "response", se.fit = TRUE)
+eqr.mean05<-predict(bio.eqr.rec, newdata = data.frame("year_s" = year.pred, "eqr.mean" = 2.13, "bioi" = mean(dat$bioi), "basin_f" = NA), type = "response", se.fit = TRUE)
+
+eqr.rec.pred.bio<-cbind(eqr.rec.pred.bio, eqr.mean01, eqr.mean02, eqr.mean03, eqr.mean04, eqr.mean05)
+colnames(eqr.rec.pred.bio)<-c("fit", "se.fit", "fit.1", "se.fit.1", "fit.2", "se.fit.2", "fit.3", "se.fit.3", "fit.4", "se.fit.4", "fit.5", "se.fit.5")
+eqr.rec.pred.bio<-eqr.rec.pred.bio %>% mutate(fit.ci05 = fit - (1.96 * se.fit), fit.ci95 = fit + (1.96 * se.fit), # mean
+                                              fit1.ci05 = fit.1 - (1.96 * se.fit.1), fit1.ci95 = fit.1 + (1.96 * se.fit.1), # eqr 0.2
+                                              fit2.ci05 = fit.2 - (1.96 * se.fit.2), fit2.ci95 = fit.2 + (1.96 * se.fit.2), # eqr 0.4
+                                              fit3.ci05 = fit.3 - (1.96 * se.fit.3), fit3.ci95 = fit.3 + (1.96 * se.fit.3), # eqr 0.6
+                                              fit4.ci05 = fit.4 - (1.96 * se.fit.4), fit4.ci95 = fit.4 + (1.96 * se.fit.4), # eqr 0.8
+                                              fit5.ci05 = fit.5 - (1.96 * se.fit.5), fit5.ci95 = fit.5 + (1.96 * se.fit.5)) # eqr 1.0
+eqr.rec.pred.bio$year<-year.unscaled
+eqr.rec.pred.bio<-eqr.rec.pred.bio %>% relocate(year)
+
+eqr.rec.pred.bio %>% ggplot() +
+  ylim(0.3,0.6) +
+  geom_line(aes(y = fit.1, x = year), color = "#B22222", linewidth = 3, linetype = "longdash") +
+  geom_ribbon(aes(x = year, ymin = fit1.ci05, ymax = fit1.ci95), alpha = 0.05, fill = "#B22222") + # lower EQR
+  geom_line(aes(y = fit.2, x = year), color = "#E66100", linewidth = 2, linetype = "longdash") +
+  geom_ribbon(aes(x = year, ymin = fit2.ci05, ymax = fit2.ci95), alpha = 0.05, fill = "#E66100") +
+  geom_line(aes(y = fit.3, x = year), color = "#FFD700", linewidth = 2, linetype = "longdash") +
+  geom_ribbon(aes(x = year, ymin = fit3.ci05, ymax = fit3.ci95), alpha = 0.05, fill = "#FFD700") +
+  geom_line(aes(y = fit.4, x = year), color = "#91BFDB", linewidth = 2, linetype = "longdash") +
+  geom_ribbon(aes(x = year, ymin = fit4.ci05, ymax = fit4.ci95), alpha = 0.05, fill = "#91BFDB") +
+  geom_line(aes(y = fit.5, x = year), color = "#00468B", linewidth = 3, linetype = "longdash") +
+  geom_ribbon(aes(x = year, ymin = fit5.ci05, ymax = fit5.ci95), alpha = 0.05, fill = "#00468B") + # higher EQR
+  labs(y = "ꞵ-diversity", x = "Year", title = NULL) +
+  theme_bw() +
+  theme(text = element_text(size = 35), panel.border = element_rect(colour = "black", fill = NA, linewidth = 1), panel.grid.major = element_line(linewidth = 0.8))
+
+
+
 ## -- Trends in ꞵ-diversity linked to temperature trend
 
 bio.temp.change<-glmmTMB(bio_bray ~ year_s * temp.change + bioi + (1|basin_f),
@@ -535,6 +866,53 @@ temp.change.pred.bio$year<-year.unscaled
 temp.change.pred.bio<-temp.change.pred.bio %>% relocate(year)
 
 temp.change.pred.bio %>% ggplot() +
+  ylim(0.3,0.6) +
+  geom_line(aes(y = fit.1, x = year), color = "#00468B", linewidth = 3, linetype = "solid") +
+  geom_ribbon(aes(x = year, ymin = fit1.ci05, ymax = fit1.ci95), alpha = 0.05, fill = "#00468B") + # lower slope (less warming or even cooling)
+  geom_line(aes(y = fit.2, x = year), color = "#91BFDB", linewidth = 2, linetype = "solid") +
+  geom_ribbon(aes(x = year, ymin = fit2.ci05, ymax = fit2.ci95), alpha = 0.05, fill = "#91BFDB") +
+  geom_line(aes(y = fit.3, x = year), color = "#FFD700", linewidth = 2, linetype = "solid") +
+  geom_ribbon(aes(x = year, ymin = fit3.ci05, ymax = fit3.ci95), alpha = 0.05, fill = "#FFD700") +
+  geom_line(aes(y = fit.4, x = year), color = "#E66100", linewidth = 2, linetype = "solid") +
+  geom_ribbon(aes(x = year, ymin = fit4.ci05, ymax = fit4.ci95), alpha = 0.05, fill = "#E66100") +
+  geom_line(aes(y = fit.5, x = year), color = "#B22222", linewidth = 3, linetype = "solid") +
+  geom_ribbon(aes(x = year, ymin = fit5.ci05, ymax = fit5.ci95), alpha = 0.05, fill = "#B22222") + # higher slope (more warming)
+  labs(y = "ꞵ-diversity", x = "Year", title = NULL) +
+  theme_bw() +
+  theme(text = element_text(size = 35), panel.border = element_rect(colour = "black", fill = NA, linewidth = 1), panel.grid.major = element_line(linewidth = 0.8))
+
+
+
+## -- Trends in ꞵ-diversity linked to mean temperature trend (Recovering communities)
+
+bio.temp.rec<-glmmTMB(bio_bray ~ year_s * temp.change + bioi + (1|basin_f),
+                      family = beta_family(link = "logit"),
+                      REML = TRUE,
+                      data = dat[!(dat$basin_f %in% bio.deg), ])
+summary(bio.temp.rec)
+
+# Predicted year effect given values of predictor
+
+temp.rec.pred.bio<-predict(bio.temp.rec, newdata = data.frame("year_s" = year.pred, "temp.change" = mean(dat$temp.change), "bioi" = mean(dat$bioi), "basin_f" = NA), type = "response", se.fit = TRUE)
+temp.rec.pred.bio<-data.frame(temp.rec.pred.bio)
+temp.change01<-predict(bio.temp.rec, newdata = data.frame("year_s" = year.pred, "temp.change" = -2.02, "bioi" = mean(dat$bioi), "basin_f" = NA), type = "response", se.fit = TRUE)
+temp.change02<-predict(bio.temp.rec, newdata = data.frame("year_s" = year.pred, "temp.change" = -0.96, "bioi" = mean(dat$bioi), "basin_f" = NA), type = "response", se.fit = TRUE)
+temp.change03<-predict(bio.temp.rec, newdata = data.frame("year_s" = year.pred, "temp.change" = 0.09, "bioi" = mean(dat$bioi), "basin_f" = NA), type = "response", se.fit = TRUE)
+temp.change04<-predict(bio.temp.rec, newdata = data.frame("year_s" = year.pred, "temp.change" = 1.14, "bioi" = mean(dat$bioi), "basin_f" = NA), type = "response", se.fit = TRUE)
+temp.change05<-predict(bio.temp.rec, newdata = data.frame("year_s" = year.pred, "temp.change" = 2.19, "bioi" = mean(dat$bioi), "basin_f" = NA), type = "response", se.fit = TRUE)
+
+temp.rec.pred.bio<-cbind(temp.rec.pred.bio, temp.change01, temp.change02, temp.change03, temp.change04, temp.change05)
+colnames(temp.rec.pred.bio)<-c("fit", "se.fit", "fit.1", "se.fit.1", "fit.2", "se.fit.2", "fit.3", "se.fit.3", "fit.4", "se.fit.4", "fit.5", "se.fit.5")
+temp.rec.pred.bio<-temp.rec.pred.bio %>% mutate(fit.ci05 = fit - (1.96 * se.fit), fit.ci95 = fit + (1.96 * se.fit), # mean
+                                                fit1.ci05 = fit.1 - (1.96 * se.fit.1), fit1.ci95 = fit.1 + (1.96 * se.fit.1), # temp.change 0.2
+                                                fit2.ci05 = fit.2 - (1.96 * se.fit.2), fit2.ci95 = fit.2 + (1.96 * se.fit.2), # temp.change 0.4
+                                                fit3.ci05 = fit.3 - (1.96 * se.fit.3), fit3.ci95 = fit.3 + (1.96 * se.fit.3), # temp.change 0.6
+                                                fit4.ci05 = fit.4 - (1.96 * se.fit.4), fit4.ci95 = fit.4 + (1.96 * se.fit.4), # temp.change 0.8
+                                                fit5.ci05 = fit.5 - (1.96 * se.fit.5), fit5.ci95 = fit.5 + (1.96 * se.fit.5)) # temp.change 1.0
+temp.rec.pred.bio$year<-year.unscaled
+temp.rec.pred.bio<-temp.rec.pred.bio %>% relocate(year)
+
+temp.rec.pred.bio %>% ggplot() +
   ylim(0.3,0.6) +
   geom_line(aes(y = fit.1, x = year), color = "#00468B", linewidth = 3, linetype = "solid") +
   geom_ribbon(aes(x = year, ymin = fit1.ci05, ymax = fit1.ci95), alpha = 0.05, fill = "#00468B") + # lower slope (less warming or even cooling)
@@ -605,6 +983,52 @@ land.pred.bio %>% ggplot() +
   theme_bw() +
   theme(text = element_text(size = 35), panel.border = element_rect(colour = "black", fill = NA, linewidth = 1), panel.grid.major = element_line(linewidth = 0.8))
 
+
+
+## -- Trends in ꞵ-diversity linked to land cover stress (Recovering communities)
+
+bio.land.rec<-glmmTMB(bio_bray ~ year_s * PC1 + year_s * PC2 + bioi + (1|basin_f),
+                      family = beta_family(link = "logit"),
+                      REML = TRUE,
+                      data = dat[!(dat$basin_f %in% bio.deg), ])
+summary(bio.land.rec)
+
+# Predicted year effect given values of predictor
+
+land.rec.pred.bio<-predict(bio.land.rec, newdata = data.frame("year_s" = year.pred, "PC1" = mean(dat$PC1), "PC2" = mean(dat$PC2), "bioi" = mean(dat$bioi), "basin_f" = NA), type = "response", se.fit = TRUE)
+land.rec.pred.bio<-data.frame(land.rec.pred.bio)
+land01<-predict(bio.land.rec, newdata = data.frame("year_s" = year.pred, "PC1" = mean(dat$PC1), "PC2" = -1.44, "bioi" = mean(dat$bioi), "basin_f" = NA), type = "response", se.fit = TRUE)
+land02<-predict(bio.land.rec, newdata = data.frame("year_s" = year.pred, "PC1" = mean(dat$PC1), "PC2" = -0.28, "bioi" = mean(dat$bioi), "basin_f" = NA), type = "response", se.fit = TRUE)
+land03<-predict(bio.land.rec, newdata = data.frame("year_s" = year.pred, "PC1" = mean(dat$PC1), "PC2" = 0.88, "bioi" = mean(dat$bioi), "basin_f" = NA), type = "response", se.fit = TRUE)
+land04<-predict(bio.land.rec, newdata = data.frame("year_s" = year.pred, "PC1" = mean(dat$PC1), "PC2" = 2.03, "bioi" = mean(dat$bioi), "basin_f" = NA), type = "response", se.fit = TRUE)
+land05<-predict(bio.land.rec, newdata = data.frame("year_s" = year.pred, "PC1" = mean(dat$PC1), "PC2" = 3.18, "bioi" = mean(dat$bioi), "basin_f" = NA), type = "response", se.fit = TRUE)
+
+land.rec.pred.bio<-cbind(land.rec.pred.bio, land01, land02, land03, land04, land05)
+colnames(land.rec.pred.bio)<-c("fit", "se.fit", "fit.1", "se.fit.1", "fit.2", "se.fit.2", "fit.3", "se.fit.3", "fit.4", "se.fit.4", "fit.5", "se.fit.5")
+land.rec.pred.bio<-land.rec.pred.bio %>% mutate(fit.ci05 = fit - (1.96 * se.fit), fit.ci95 = fit + (1.96 * se.fit), # mean
+                                                fit1.ci05 = fit.1 - (1.96 * se.fit.1), fit1.ci95 = fit.1 + (1.96 * se.fit.1), # higher forest
+                                                fit2.ci05 = fit.2 - (1.96 * se.fit.2), fit2.ci95 = fit.2 + (1.96 * se.fit.2),
+                                                fit3.ci05 = fit.3 - (1.96 * se.fit.3), fit3.ci95 = fit.3 + (1.96 * se.fit.3),
+                                                fit4.ci05 = fit.4 - (1.96 * se.fit.4), fit4.ci95 = fit.4 + (1.96 * se.fit.4),
+                                                fit5.ci05 = fit.5 - (1.96 * se.fit.5), fit5.ci95 = fit.5 + (1.96 * se.fit.5)) # higher urban
+land.rec.pred.bio$year<-year.unscaled
+land.rec.pred.bio<-land.rec.pred.bio %>% relocate(year)
+
+land.rec.pred.bio %>% ggplot() +
+  ylim(0.3,0.6) +
+  geom_line(aes(y = fit.1, x = year), color = "#00468B", linewidth = 3, linetype = "solid") + 
+  geom_ribbon(aes(x = year, ymin = fit1.ci05, ymax = fit1.ci95), alpha = 0.05, fill = "#00468B") + # lower stress (more forest)
+  geom_line(aes(y = fit.2, x = year), color = "#91BFDB", linewidth = 2, linetype = "solid") + 
+  geom_ribbon(aes(x = year, ymin = fit2.ci05, ymax = fit2.ci95), alpha = 0.05, fill = "#91BFDB") + 
+  geom_line(aes(y = fit.3, x = year), color = "#FFD700", linewidth = 2, linetype = "solid") + 
+  geom_ribbon(aes(x = year, ymin = fit3.ci05, ymax = fit3.ci95), alpha = 0.05, fill = "#FFD700") + 
+  geom_line(aes(y = fit.4, x = year), color = "#E66100", linewidth = 2, linetype = "solid") + 
+  geom_ribbon(aes(x = year, ymin = fit4.ci05, ymax = fit4.ci95), alpha = 0.05, fill = "#E66100") + 
+  geom_line(aes(y = fit.5, x = year), color = "#B22222", linewidth = 3, linetype = "solid") +
+  geom_ribbon(aes(x = year, ymin = fit5.ci05, ymax = fit5.ci95), alpha = 0.05, fill = "#B22222") + # higher stress (more urban)
+  labs(y = "ꞵ-diversity", x = "Year", title = NULL) +
+  theme_bw() +
+  theme(text = element_text(size = 35), panel.border = element_rect(colour = "black", fill = NA, linewidth = 1), panel.grid.major = element_line(linewidth = 0.8))
 
 
 
@@ -726,6 +1150,55 @@ eqr.mean.pred.eco %>% ggplot() +
 
 
 
+## -- Trends in ꞵ-diversity linked to mean EQR (Recovering communities)
+
+eco.deg<-c("CR02", "DE04", "DE06", "DE07", "DE08", "DE09", "FI01", "FR04", "GR01", "GR02", "GR04", "HU01", "IR01", "SP07", "SW05", "UK01")
+
+eco.eqr.rec<-glmmTMB(eco_bray ~ year_s * eqr.mean + ecoi + (1|basin_f),
+                     family = beta_family(link = "logit"),
+                     REML = TRUE,
+                     data = dat[!(dat$basin_f %in% eco.deg), ])
+summary(eco.eqr.rec)
+
+# Predicted year effect given values of predictor
+
+eqr.rec.pred<-predict(eco.eqr.rec, newdata = data.frame("year_s" = year.pred, "eqr.mean" = mean(dat$eqr.mean), "ecoi" = mean(dat$ecoi), "basin_f" = NA), type = "response", se.fit = TRUE)
+eqr.rec.pred.eco<-data.frame(eqr.rec.pred)
+eqr.mean01<-predict(eco.eqr.rec, newdata = data.frame("year_s" = year.pred, "eqr.mean" = -1.61, "ecoi" = mean(dat$ecoi), "basin_f" = NA), type = "response", se.fit = TRUE)
+eqr.mean02<-predict(eco.eqr.rec, newdata = data.frame("year_s" = year.pred, "eqr.mean" = -0.67, "ecoi" = mean(dat$ecoi), "basin_f" = NA), type = "response", se.fit = TRUE)
+eqr.mean03<-predict(eco.eqr.rec, newdata = data.frame("year_s" = year.pred, "eqr.mean" = 0.27, "ecoi" = mean(dat$ecoi), "basin_f" = NA), type = "response", se.fit = TRUE)
+eqr.mean04<-predict(eco.eqr.rec, newdata = data.frame("year_s" = year.pred, "eqr.mean" = 1.20, "ecoi" = mean(dat$ecoi), "basin_f" = NA), type = "response", se.fit = TRUE)
+eqr.mean05<-predict(eco.eqr.rec, newdata = data.frame("year_s" = year.pred, "eqr.mean" = 2.13, "ecoi" = mean(dat$ecoi), "basin_f" = NA), type = "response", se.fit = TRUE)
+
+eqr.rec.pred.eco<-cbind(eqr.rec.pred.eco, eqr.mean01, eqr.mean02, eqr.mean03, eqr.mean04, eqr.mean05)
+colnames(eqr.rec.pred.eco)<-c("fit", "se.fit", "fit.1", "se.fit.1", "fit.2", "se.fit.2", "fit.3", "se.fit.3", "fit.4", "se.fit.4", "fit.5", "se.fit.5")
+eqr.rec.pred.eco<-eqr.rec.pred.eco %>% mutate(fit.ci05 = fit - (1.96 * se.fit), fit.ci95 = fit + (1.96 * se.fit), # mean
+                                              fit1.ci05 = fit.1 - (1.96 * se.fit.1), fit1.ci95 = fit.1 + (1.96 * se.fit.1), # eqr 0.2
+                                              fit2.ci05 = fit.2 - (1.96 * se.fit.2), fit2.ci95 = fit.2 + (1.96 * se.fit.2), # eqr 0.4
+                                              fit3.ci05 = fit.3 - (1.96 * se.fit.3), fit3.ci95 = fit.3 + (1.96 * se.fit.3), # eqr 0.6
+                                              fit4.ci05 = fit.4 - (1.96 * se.fit.4), fit4.ci95 = fit.4 + (1.96 * se.fit.4), # eqr 0.8
+                                              fit5.ci05 = fit.5 - (1.96 * se.fit.5), fit5.ci95 = fit.5 + (1.96 * se.fit.5)) # eqr 1.0
+eqr.rec.pred.eco$year<-year.unscaled
+eqr.rec.pred.eco<-eqr.rec.pred.eco %>% relocate(year)
+
+eqr.rec.pred.eco %>% ggplot() +
+  ylim(0.18,0.4) +
+  geom_line(aes(y = fit.1, x = year), color = "#B22222", linewidth = 3, linetype = "solid") +
+  geom_ribbon(aes(x = year, ymin = fit1.ci05, ymax = fit1.ci95), alpha = 0.05, fill = "#B22222") + # lower EQR
+  geom_line(aes(y = fit.2, x = year), color = "#E66100", linewidth = 2, linetype = "solid") +
+  geom_ribbon(aes(x = year, ymin = fit2.ci05, ymax = fit2.ci95), alpha = 0.05, fill = "#E66100") +
+  geom_line(aes(y = fit.3, x = year), color = "#FFD700", linewidth = 2, linetype = "solid") +
+  geom_ribbon(aes(x = year, ymin = fit3.ci05, ymax = fit3.ci95), alpha = 0.05, fill = "#FFD700") +
+  geom_line(aes(y = fit.4, x = year), color = "#91BFDB", linewidth = 2, linetype = "solid") +
+  geom_ribbon(aes(x = year, ymin = fit4.ci05, ymax = fit4.ci95), alpha = 0.05, fill = "#91BFDB") +
+  geom_line(aes(y = fit.5, x = year), color = "#00468B", linewidth = 3, linetype = "solid") +
+  geom_ribbon(aes(x = year, ymin = fit5.ci05, ymax = fit5.ci95), alpha = 0.05, fill = "#00468B") + # higher EQR
+  labs(y = "ꞵ-diversity", x = "Year", title = NULL) +
+  theme_bw() +
+  theme(text = element_text(size = 35), panel.border = element_rect(colour = "black", fill = NA, linewidth = 1), panel.grid.major = element_line(linewidth = 0.8))
+
+
+
 ## -- Trends in ꞵ-diversity linked to temperature trend
 
 eco.temp.change<-glmmTMB(eco_bray ~ year_s * temp.change + ecoi + (1|basin_f),
@@ -781,6 +1254,53 @@ temp.change.pred.eco %>% ggplot() +
 
 
 
+## -- Trends in ꞵ-diversity linked to mean temperature trend (Recovering communities)
+
+eco.temp.rec<-glmmTMB(eco_bray ~ year_s * temp.change + ecoi + (1|basin_f),
+                      family = beta_family(link = "logit"),
+                      REML = TRUE,
+                      data = dat[!(dat$basin_f %in% eco.deg), ])
+summary(eco.temp.rec)
+
+# Predicted year effect given values of predictor
+
+temp.rec.pred.eco<-predict(eco.temp.rec, newdata = data.frame("year_s" = year.pred, "temp.change" = mean(dat$temp.change), "ecoi" = mean(dat$ecoi), "basin_f" = NA), type = "response", se.fit = TRUE)
+temp.rec.pred.eco<-data.frame(temp.rec.pred.eco)
+temp.change01<-predict(eco.temp.rec, newdata = data.frame("year_s" = year.pred, "temp.change" = -2.02, "ecoi" = mean(dat$ecoi), "basin_f" = NA), type = "response", se.fit = TRUE)
+temp.change02<-predict(eco.temp.rec, newdata = data.frame("year_s" = year.pred, "temp.change" = -0.96, "ecoi" = mean(dat$ecoi), "basin_f" = NA), type = "response", se.fit = TRUE)
+temp.change03<-predict(eco.temp.rec, newdata = data.frame("year_s" = year.pred, "temp.change" = 0.09, "ecoi" = mean(dat$ecoi), "basin_f" = NA), type = "response", se.fit = TRUE)
+temp.change04<-predict(eco.temp.rec, newdata = data.frame("year_s" = year.pred, "temp.change" = 1.14, "ecoi" = mean(dat$ecoi), "basin_f" = NA), type = "response", se.fit = TRUE)
+temp.change05<-predict(eco.temp.rec, newdata = data.frame("year_s" = year.pred, "temp.change" = 2.19, "ecoi" = mean(dat$ecoi), "basin_f" = NA), type = "response", se.fit = TRUE)
+
+temp.rec.pred.eco<-cbind(temp.rec.pred.eco, temp.change01, temp.change02, temp.change03, temp.change04, temp.change05)
+colnames(temp.rec.pred.eco)<-c("fit", "se.fit", "fit.1", "se.fit.1", "fit.2", "se.fit.2", "fit.3", "se.fit.3", "fit.4", "se.fit.4", "fit.5", "se.fit.5")
+temp.rec.pred.eco<-temp.rec.pred.eco %>% mutate(fit.ci05 = fit - (1.96 * se.fit), fit.ci95 = fit + (1.96 * se.fit), # mean
+                                                fit1.ci05 = fit.1 - (1.96 * se.fit.1), fit1.ci95 = fit.1 + (1.96 * se.fit.1), # temp.change 0.2
+                                                fit2.ci05 = fit.2 - (1.96 * se.fit.2), fit2.ci95 = fit.2 + (1.96 * se.fit.2), # temp.change 0.4
+                                                fit3.ci05 = fit.3 - (1.96 * se.fit.3), fit3.ci95 = fit.3 + (1.96 * se.fit.3), # temp.change 0.6
+                                                fit4.ci05 = fit.4 - (1.96 * se.fit.4), fit4.ci95 = fit.4 + (1.96 * se.fit.4), # temp.change 0.8
+                                                fit5.ci05 = fit.5 - (1.96 * se.fit.5), fit5.ci95 = fit.5 + (1.96 * se.fit.5)) # temp.change 1.0
+temp.rec.pred.eco$year<-year.unscaled
+temp.rec.pred.eco<-temp.rec.pred.eco %>% relocate(year)
+
+temp.rec.pred.eco %>% ggplot() +
+  ylim(0.18,0.4) +
+  geom_line(aes(y = fit.1, x = year), color = "#00468B", linewidth = 3, linetype = "longdash") +
+  geom_ribbon(aes(x = year, ymin = fit1.ci05, ymax = fit1.ci95), alpha = 0.05, fill = "#00468B") + # lower slope (less warming or even cooling)
+  geom_line(aes(y = fit.2, x = year), color = "#91BFDB", linewidth = 2, linetype = "longdash") +
+  geom_ribbon(aes(x = year, ymin = fit2.ci05, ymax = fit2.ci95), alpha = 0.05, fill = "#91BFDB") +
+  geom_line(aes(y = fit.3, x = year), color = "#FFD700", linewidth = 2, linetype = "longdash") +
+  geom_ribbon(aes(x = year, ymin = fit3.ci05, ymax = fit3.ci95), alpha = 0.05, fill = "#FFD700") +
+  geom_line(aes(y = fit.4, x = year), color = "#E66100", linewidth = 2, linetype = "longdash") +
+  geom_ribbon(aes(x = year, ymin = fit4.ci05, ymax = fit4.ci95), alpha = 0.05, fill = "#E66100") +
+  geom_line(aes(y = fit.5, x = year), color = "#B22222", linewidth = 3, linetype = "longdash") +
+  geom_ribbon(aes(x = year, ymin = fit5.ci05, ymax = fit5.ci95), alpha = 0.05, fill = "#B22222") + # higher slope (more warming)
+  labs(y = "ꞵ-diversity", x = "Year", title = NULL) +
+  theme_bw() +
+  theme(text = element_text(size = 35), panel.border = element_rect(colour = "black", fill = NA, linewidth = 1), panel.grid.major = element_line(linewidth = 0.8))
+
+
+
 ## -- Trends in ꞵ-diversity linked to land cover stress
 
 eco.land<-glmmTMB(eco_bray ~ year_s * PC1 + year_s * PC2 + ecoi + (1|basin_f),
@@ -819,6 +1339,53 @@ land.pred.eco$year<-year.unscaled
 land.pred.eco<-land.pred.eco %>% relocate(year)
 
 land.pred.eco %>% ggplot() +
+  ylim(0.18,0.4) +
+  geom_line(aes(y = fit.1, x = year), color = "#00468B", linewidth = 3, linetype = "solid") + 
+  geom_ribbon(aes(x = year, ymin = fit1.ci05, ymax = fit1.ci95), alpha = 0.05, fill = "#00468B") + # lower stress (more forest)
+  geom_line(aes(y = fit.2, x = year), color = "#91BFDB", linewidth = 2, linetype = "solid") + 
+  geom_ribbon(aes(x = year, ymin = fit2.ci05, ymax = fit2.ci95), alpha = 0.05, fill = "#91BFDB") + 
+  geom_line(aes(y = fit.3, x = year), color = "#FFD700", linewidth = 2, linetype = "solid") + 
+  geom_ribbon(aes(x = year, ymin = fit3.ci05, ymax = fit3.ci95), alpha = 0.05, fill = "#FFD700") + 
+  geom_line(aes(y = fit.4, x = year), color = "#E66100", linewidth = 2, linetype = "solid") + 
+  geom_ribbon(aes(x = year, ymin = fit4.ci05, ymax = fit4.ci95), alpha = 0.05, fill = "#E66100") + 
+  geom_line(aes(y = fit.5, x = year), color = "#B22222", linewidth = 3, linetype = "solid") +
+  geom_ribbon(aes(x = year, ymin = fit5.ci05, ymax = fit5.ci95), alpha = 0.05, fill = "#B22222") + # higher stress (more urban)
+  labs(y = "ꞵ-diversity", x = "Year", title = NULL) +
+  theme_bw() +
+  theme(text = element_text(size = 35), panel.border = element_rect(colour = "black", fill = NA, linewidth = 1), panel.grid.major = element_line(linewidth = 0.8))
+
+
+
+## -- Trends in ꞵ-diversity linked to land cover stress (Recovering communities)
+
+eco.land.rec<-glmmTMB(eco_bray ~ year_s * PC1 + year_s * PC2 + ecoi + (1|basin_f),
+                      family = beta_family(link = "logit"),
+                      REML = TRUE,
+                      data = dat[!(dat$basin_f %in% eco.deg), ])
+summary(eco.land.rec)
+
+# Predicted year effect given values of predictor
+
+land.rec.pred.eco<-predict(eco.land.rec, newdata = data.frame("year_s" = year.pred, "PC1" = mean(dat$PC1), "PC2" = mean(dat$PC2), "ecoi" = mean(dat$ecoi), "basin_f" = NA), type = "response", se.fit = TRUE)
+land.rec.pred.eco<-data.frame(land.rec.pred.eco)
+land01<-predict(eco.land.rec, newdata = data.frame("year_s" = year.pred, "PC1" = mean(dat$PC1), "PC2" = -1.44, "ecoi" = mean(dat$ecoi), "basin_f" = NA), type = "response", se.fit = TRUE)
+land02<-predict(eco.land.rec, newdata = data.frame("year_s" = year.pred, "PC1" = mean(dat$PC1), "PC2" = -0.28, "ecoi" = mean(dat$ecoi), "basin_f" = NA), type = "response", se.fit = TRUE)
+land03<-predict(eco.land.rec, newdata = data.frame("year_s" = year.pred, "PC1" = mean(dat$PC1), "PC2" = 0.88, "ecoi" = mean(dat$ecoi), "basin_f" = NA), type = "response", se.fit = TRUE)
+land04<-predict(eco.land.rec, newdata = data.frame("year_s" = year.pred, "PC1" = mean(dat$PC1), "PC2" = 2.03, "ecoi" = mean(dat$ecoi), "basin_f" = NA), type = "response", se.fit = TRUE)
+land05<-predict(eco.land.rec, newdata = data.frame("year_s" = year.pred, "PC1" = mean(dat$PC1), "PC2" = 3.18, "ecoi" = mean(dat$ecoi), "basin_f" = NA), type = "response", se.fit = TRUE)
+
+land.rec.pred.eco<-cbind(land.rec.pred.eco, land01, land02, land03, land04, land05)
+colnames(land.rec.pred.eco)<-c("fit", "se.fit", "fit.1", "se.fit.1", "fit.2", "se.fit.2", "fit.3", "se.fit.3", "fit.4", "se.fit.4", "fit.5", "se.fit.5")
+land.rec.pred.eco<-land.rec.pred.eco %>% mutate(fit.ci05 = fit - (1.96 * se.fit), fit.ci95 = fit + (1.96 * se.fit), # mean
+                                                fit1.ci05 = fit.1 - (1.96 * se.fit.1), fit1.ci95 = fit.1 + (1.96 * se.fit.1), # higher forest
+                                                fit2.ci05 = fit.2 - (1.96 * se.fit.2), fit2.ci95 = fit.2 + (1.96 * se.fit.2),
+                                                fit3.ci05 = fit.3 - (1.96 * se.fit.3), fit3.ci95 = fit.3 + (1.96 * se.fit.3),
+                                                fit4.ci05 = fit.4 - (1.96 * se.fit.4), fit4.ci95 = fit.4 + (1.96 * se.fit.4),
+                                                fit5.ci05 = fit.5 - (1.96 * se.fit.5), fit5.ci95 = fit.5 + (1.96 * se.fit.5)) # higher urban
+land.rec.pred.eco$year<-year.unscaled
+land.rec.pred.eco<-land.rec.pred.eco %>% relocate(year)
+
+land.rec.pred.eco %>% ggplot() +
   ylim(0.18,0.4) +
   geom_line(aes(y = fit.1, x = year), color = "#00468B", linewidth = 3, linetype = "solid") + 
   geom_ribbon(aes(x = year, ymin = fit1.ci05, ymax = fit1.ci95), alpha = 0.05, fill = "#00468B") + # lower stress (more forest)
